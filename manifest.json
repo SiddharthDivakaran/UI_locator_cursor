@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Element Locator Finder",
+  "name": "Select Sense",
+  "author": "Siddharth Divakaran",
   "version": "1.0",
   "description": "Find and test different locator strategies for UI elements",
   "permissions": [

@@ -13,171 +13,158 @@ document.addEventListener('contextmenu', (e) => {
 
 // Function to get all possible locators for an element
 function getLocators(element) {
+  if (!element) return null;
+
   const locators = {
-    css: '',
-    xpath: '',
-    className: '',
-    linkText: '',
-    partialLinkText: '',
-    tagName: ''
+    css: generateCSSSelector(element),
+    xpath: generateXPath(element),
+    id: element.id ? element.id : null,
+    name: element.name ? element.name : null,
+    linkText: null,
+    partialLinkText: null,
+    className: null,
+    tagName: null
   };
 
-  // CSS
-  locators.css = generateCSSSelector(element);
+  // Get tag name locator
+  if (element.tagName) {
+    locators.tagName = element.tagName.toLowerCase();
+  }
 
-  // XPath
-  locators.xpath = generateXPath(element);
-
-  // Class
-  if (element.className) {
+  // Get class name locator
+  if (element.className && typeof element.className === 'string' && element.className.trim() !== '') {
     locators.className = element.className.trim();
   }
 
-  // Link text and partial link text (only for anchor tags)
-  if (element.tagName.toLowerCase() === 'a') {
+  // For link elements, add link text locators
+  if (element.tagName && element.tagName.toLowerCase() === 'a') {
     const text = element.textContent.trim();
     if (text) {
       locators.linkText = text;
+      // If text is long, also add partial link text as first 20 chars
+      if (text.length > 20) {
+        locators.partialLinkText = text.substring(0, 20);
+      } else {
       locators.partialLinkText = text;
+      }
     }
   }
-
-  // Tag name
-  locators.tagName = element.tagName.toLowerCase();
 
   return locators;
 }
 
 // Improved CSS selector generator
 function generateCSSSelector(element) {
-  // If element has ID, use it (most reliable)
-  if (element.id) {
-    return `#${element.id}`;
+  if (!element) return null;
+  if (element === document.body) return 'body';
+
+  // Check for ID first
+  if (element.id && document.querySelectorAll(`#${CSS.escape(element.id)}`).length === 1) {
+    return `#${CSS.escape(element.id)}`;
   }
-  
-  // Try with class if it's not too generic
-  if (element.classList && element.classList.length > 0) {
-    const classList = Array.from(element.classList)
-      .filter(cls => 
-        // Filter out common dynamic/state classes
-        !cls.match(/^(active|selected|hover|open|show|hide|hidden|visible|collapsed|expanded)$/) &&
-        // Filter out utility classes (often numeric or very short)
-        cls.length > 3
-      );
-    
-    if (classList.length > 0) {
-      // Try with the most specific class first
-      const mostSpecificClass = classList.sort((a, b) => b.length - a.length)[0];
-      const tagWithClass = `${element.tagName.toLowerCase()}.${mostSpecificClass}`;
-      
-      // Check if this selector uniquely identifies the element
-      try {
-        const elements = document.querySelectorAll(tagWithClass);
-        if (elements.length === 1) {
-          return tagWithClass;
-        }
-      } catch (e) {
-        // If there's an error with the selector, continue to other methods
-        console.error('Error with class selector:', e);
-      }
+
+  // Use data-* attributes if available and unique
+  const dataAttrs = Array.from(element.attributes)
+    .filter(attr => attr.name.startsWith('data-') && attr.value);
+
+  for (const attr of dataAttrs) {
+    const selector = `[${attr.name}="${CSS.escape(attr.value)}"]`;
+    if (document.querySelectorAll(selector).length === 1) {
+      return selector;
     }
   }
-  
-  // Try with specific attributes based on element type
-  if (element.tagName === 'A' && element.href) {
-    // For links, try href
-    const href = element.getAttribute('href');
-    if (href) {
-      try {
-        const tagWithHref = `a[href="${href}"]`;
-        const elements = document.querySelectorAll(tagWithHref);
+
+  // Use class names if they're specific enough
+  if (element.className && typeof element.className === 'string') {
+    const classes = element.className.trim().split(/\s+/).filter(c => c);
+    if (classes.length > 0) {
+      // Try combinations of classes, starting with all of them
+      for (let i = classes.length; i > 0; i--) {
+        const combinations = getCombinations(classes, i);
+        for (const combo of combinations) {
+          const selector = combo.map(c => `.${CSS.escape(c)}`).join('');
+          const elements = document.querySelectorAll(selector);
         if (elements.length === 1) {
-          return tagWithHref;
+            return selector;
+          }
+
+          // If this combo doesn't uniquely identify the element,
+          // try adding tag name for more specificity
+          const tagSelector = element.tagName.toLowerCase() + selector;
+          const tagElements = document.querySelectorAll(tagSelector);
+          if (tagElements.length === 1) {
+            return tagSelector;
+          }
         }
-      } catch (e) {
-        console.error('Error with href selector:', e);
       }
+
+      // If no unique class combination, use them all with the tag and structural selectors
+      const classSelector = classes.map(c => `.${CSS.escape(c)}`).join('');
+      return generateStructuralSelector(element, element.tagName.toLowerCase() + classSelector);
     }
   }
-  
-  if (element.tagName === 'IMG' && element.alt) {
-    // For images, try alt text
-    const alt = element.getAttribute('alt');
-    if (alt) {
-      try {
-        const tagWithAlt = `img[alt="${alt}"]`;
-        const elements = document.querySelectorAll(tagWithAlt);
-        if (elements.length === 1) {
-          return tagWithAlt;
-        }
-      } catch (e) {
-        console.error('Error with alt selector:', e);
-      }
+
+  // Handle elements with no classes
+  return generateStructuralSelector(element, element.tagName.toLowerCase());
+}
+
+// Helper function to generate combinations of classes
+function getCombinations(array, size) {
+  const result = [];
+
+  function combine(start, combo) {
+    if (combo.length === size) {
+      result.push([...combo]);
+      return;
+    }
+
+    for (let i = start; i < array.length; i++) {
+      combo.push(array[i]);
+      combine(i + 1, combo);
+      combo.pop();
     }
   }
-  
-  if (element.tagName === 'INPUT') {
-    // For inputs, try name and type
-    const name = element.getAttribute('name');
-    const type = element.getAttribute('type');
-    
-    if (name) {
-      try {
-        const tagWithName = `input[name="${name}"]`;
-        const elements = document.querySelectorAll(tagWithName);
-        if (elements.length === 1) {
-          return tagWithName;
-        }
-      } catch (e) {
-        console.error('Error with name selector:', e);
+
+  combine(0, []);
+  return result;
+}
+
+// Generate a structural selector with nth-child for more specific targeting
+function generateStructuralSelector(element, baseSelector) {
+  const path = [];
+  let current = element;
+
+  while (current && current !== document.body && current.parentElement) {
+    let selector = current.tagName.toLowerCase();
+
+    // Add classes for the current element if available
+    if (current.className && typeof current.className === 'string' && current.className.trim()) {
+      const classes = current.className.trim().split(/\s+/).filter(c => c);
+      if (classes.length > 0) {
+        selector += classes.map(c => `.${CSS.escape(c)}`).join('');
       }
     }
-    
-    if (type) {
-      try {
-        const tagWithType = `input[type="${type}"]`;
-        const elements = document.querySelectorAll(tagWithType);
-        if (elements.length === 1) {
-          return tagWithType;
-        }
-      } catch (e) {
-        console.error('Error with type selector:', e);
-      }
+
+    // Add nth-child for more specificity
+    const siblings = Array.from(current.parentElement.children);
+    const index = siblings.findIndex(el => el === current) + 1;
+    if (siblings.length > 1) {
+      selector += `:nth-child(${index})`;
     }
-  }
-  
-  // Default CSS selector generation using path
-  let path = [];
-  let currentElement = element;
-  
-  while (currentElement) {
-    let selector = currentElement.tagName.toLowerCase();
-    
-    if (currentElement.id) {
-      selector += `#${currentElement.id}`;
-      path.unshift(selector);
-      break;
-    }
-    
-    // Add nth-of-type for more specificity
-    let sibling = currentElement;
-    let nth = 1;
-    
-    while (sibling.previousElementSibling) {
-      sibling = sibling.previousElementSibling;
-      if (sibling.tagName === currentElement.tagName) nth++;
-    }
-    
-    if (nth > 1) selector += `:nth-of-type(${nth})`;
+
     path.unshift(selector);
     
-    // Stop at body to avoid overly complex selectors
-    if (currentElement.tagName.toLowerCase() === 'body') break;
-    
-    currentElement = currentElement.parentElement;
+    // Check if the current path is already unique
+    const testSelector = path.join(' > ');
+    if (document.querySelectorAll(testSelector).length === 1) {
+      return testSelector;
+    }
+
+    current = current.parentElement;
   }
-  
-  return path.join(' > ');
+
+  // Final selector with body as the root if needed
+  return (current === document.body ? 'body > ' : '') + path.join(' > ');
 }
 
 // Function to generate XPath
@@ -217,34 +204,33 @@ function generateXPath(element) {
 
 // Function to create highlight overlay
 function createHighlightOverlay(element) {
-  try {
-    // Get element position accounting for scrolling
     const rect = element.getBoundingClientRect();
     
-    // Create overlay element - use a simple red border only
+  // Create overlay
     const overlay = document.createElement('div');
-    
-    // Position overlay directly over the element
-    overlay.style.cssText = `
-      position: absolute;
-      top: ${window.scrollY + rect.top}px;
-      left: ${window.scrollX + rect.left}px;
-      width: ${rect.width}px;
-      height: ${rect.height}px;
-      border: 2px solid red;
-      pointer-events: none;
-      z-index: 2147483645;
-      transition: all 0.2s ease;
-    `;
-    
-    overlay.id = 'element-locator-overlay';
+  overlay.style.position = 'absolute';
+  overlay.style.top = `${window.scrollY + rect.top}px`;
+  overlay.style.left = `${window.scrollX + rect.left}px`;
+  overlay.style.width = `${rect.width}px`;
+  overlay.style.height = `${rect.height}px`;
+  overlay.style.border = '2px solid #4dabf7'; // Light blue border
+  overlay.style.backgroundColor = 'rgba(77, 171, 247, 0.2)'; // Light blue with transparency
+  overlay.style.zIndex = '10000';
+  overlay.style.pointerEvents = 'none'; // Allow clicks to pass through
+  overlay.style.boxSizing = 'border-box';
+  overlay.style.borderRadius = '2px';
+  overlay.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.5)'; // White outline for better visibility
+
     document.body.appendChild(overlay);
+
+  // Remove after 3 seconds
+  setTimeout(() => {
+    if (overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+  }, 3000);
     
     return { overlay };
-  } catch (error) {
-    console.error('Error creating highlight overlay:', error);
-    return null;
-  }
 }
 
 // Function to show error message in the panel
@@ -402,11 +388,11 @@ function showLocatorPanel(locators) {
   `;
   
   const title = document.createElement('span');
-  title.textContent = 'Element Locator';
+  title.textContent = 'Select Sense';
   
   titleContainer.appendChild(iconSvg);
   titleContainer.appendChild(title);
-  
+
   // Create right-side button container
   const buttonContainer = document.createElement('div');
   buttonContainer.style.cssText = `
@@ -414,7 +400,7 @@ function showLocatorPanel(locators) {
     align-items: center;
     gap: 8px;
   `;
-  
+
   // Add page object button
   const pageObjectButton = document.createElement('button');
   pageObjectButton.innerHTML = `
@@ -450,7 +436,7 @@ function showLocatorPanel(locators) {
     e.preventDefault();
     showLibraryManager(); // Show library manager where page object buttons are available
   });
-  
+
   // Add library manager button
   const libraryButton = document.createElement('button');
   libraryButton.innerHTML = `
@@ -482,6 +468,46 @@ function showLocatorPanel(locators) {
     e.preventDefault();
     showLibraryManager();
   });
+
+  // Help button
+  const helpButton = document.createElement('button');
+  helpButton.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 100 100">
+  <!-- Hollow circle -->
+  <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="3"/>
+  
+  <!-- Question mark -->
+  <text x="50" y="65" font-family="Arial, sans-serif" font-size="55" font-weight="bold" text-anchor="middle" fill="currentColor">?</text>
+</svg>
+  `;
+  helpButton.title = 'Help';
+  helpButton.style.cssText = `
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 4px;
+  `;
+  helpButton.addEventListener('mouseover', () => {
+    helpButton.style.color = '#33a095';
+  });
+  helpButton.addEventListener('mouseout', () => {
+    helpButton.style.color = '#999';
+  });
+  helpButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    showHelpDocumentation();
+  });
+  function showHelpDocumentation() {
+    const docUrl = 'https://google.com';
+    window.open(docUrl, '_blank');
+  }
   
   const closeButton = document.createElement('button');
   closeButton.innerHTML = '&times;';
@@ -498,9 +524,10 @@ function showLocatorPanel(locators) {
     locatorPanel.parentNode.removeChild(locatorPanel);
     locatorPanel = null;
   });
-  
+
   buttonContainer.appendChild(pageObjectButton);
   buttonContainer.appendChild(libraryButton);
+  buttonContainer.appendChild(helpButton);
   buttonContainer.appendChild(closeButton);
   
   header.appendChild(titleContainer);
@@ -545,7 +572,7 @@ function showLocatorPanel(locators) {
   locatorTypeContainer.style.cssText = `
     margin-bottom: 16px;
   `;
-  
+
   const locatorTypeLabel = document.createElement('div');
   locatorTypeLabel.style.cssText = `
     margin-bottom: 8px;
@@ -554,13 +581,13 @@ function showLocatorPanel(locators) {
     color: #ccc;
   `;
   locatorTypeLabel.textContent = 'LOCATOR TYPE';
-  
+
   const locatorTypeButtons = document.createElement('div');
   locatorTypeButtons.style.cssText = `
     display: flex;
     gap: 8px;
   `;
-  
+
   // Create locator type buttons
   const strategies = [
     { id: 'css', label: 'CSS', isDefault: true },
@@ -568,7 +595,7 @@ function showLocatorPanel(locators) {
     { id: 'classname', label: 'CLASS', isDefault: false },
     { id: 'linktext', label: 'LINK', isDefault: false }
   ];
-  
+
   strategies.forEach(strategy => {
     const button = document.createElement('button');
     button.textContent = strategy.label;
@@ -585,39 +612,39 @@ function showLocatorPanel(locators) {
       text-align: center;
       transition: background-color 0.2s ease;
     `;
-    
+
     button.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      
+
       // Update button styles
       locatorTypeButtons.querySelectorAll('button').forEach(btn => {
         btn.style.backgroundColor = 'rgba(26, 26, 26, 0.6)';
       });
       button.style.backgroundColor = 'rgba(0, 150, 136, 0.7)';
-      
+
       // Update textarea value based on selected strategy
       const strategyId = button.dataset.strategy;
       const locatorValue = locators[strategyId] || '';
       locatorValueTextarea.value = locatorValue;
-      
+
       // Clear any error messages
       clearErrorMessage();
     });
-    
+
     locatorTypeButtons.appendChild(button);
   });
-  
+
   locatorTypeContainer.appendChild(locatorTypeLabel);
   locatorTypeContainer.appendChild(locatorTypeButtons);
   locatorPanel.appendChild(locatorTypeContainer);
-  
+
   // Create locator value section
   const locatorValueContainer = document.createElement('div');
   locatorValueContainer.style.cssText = `
     margin-bottom: 16px;
   `;
-  
+
   const locatorValueLabel = document.createElement('div');
   locatorValueLabel.style.cssText = `
     margin-bottom: 8px;
@@ -626,7 +653,7 @@ function showLocatorPanel(locators) {
     color: #ccc;
   `;
   locatorValueLabel.textContent = 'LOCATOR VALUE';
-  
+
   const locatorValueTextarea = document.createElement('textarea');
   locatorValueTextarea.value = locators.css; // Default to CSS
   locatorValueTextarea.style.cssText = `
@@ -642,11 +669,11 @@ function showLocatorPanel(locators) {
     min-height: 80px;
     box-sizing: border-box;
   `;
-  
+
   locatorValueContainer.appendChild(locatorValueLabel);
   locatorValueContainer.appendChild(locatorValueTextarea);
   locatorPanel.appendChild(locatorValueContainer);
-  
+
   // Create button container for side-by-side buttons
   const actionButtonContainer = document.createElement('div');
   actionButtonContainer.style.cssText = `
@@ -654,7 +681,7 @@ function showLocatorPanel(locators) {
     gap: 12px;
     margin-bottom: 16px;
   `;
-  
+
   // Create buttons
   const testButton = document.createElement('button');
   testButton.textContent = 'Test Locator';
@@ -693,7 +720,7 @@ function showLocatorPanel(locators) {
     
     const strategy = selectedButton.dataset.strategy;
     const locator = locatorValueTextarea.value.trim();
-    
+
     if (!locator) {
       showErrorMessage('Locator value is empty');
       isTestingLocator = false;
@@ -739,15 +766,15 @@ function showLocatorPanel(locators) {
       showErrorMessage('Please select a locator strategy');
       return;
     }
-    
+
     const strategy = selectedButton.dataset.strategy;
     const locator = locatorValueTextarea.value.trim();
-    
+
     if (!locator) {
       showErrorMessage('Locator value is empty');
       return;
     }
-    
+
     // Create locators object with all strategies
     const locatorsToSave = {
       css: strategy === 'css' ? locator : locators.css || '',
@@ -783,31 +810,31 @@ function showLocatorPanel(locators) {
   codeSnippetsButton.addEventListener('click', (e) => {
     e.stopPropagation();
     e.preventDefault();
-    
+
     const elementName = nameInput.value.trim();
     if (!elementName) {
       showErrorMessage('Please enter an element name');
       return;
     }
-    
+
     // Get selected strategy
     const selectedButton = locatorTypeButtons.querySelector('button[style*="background-color: rgba(0, 150, 136"]');
     if (!selectedButton) {
       showErrorMessage('Please select a locator strategy');
       return;
     }
-    
+
     const strategy = selectedButton.dataset.strategy;
     const locator = locatorValueTextarea.value.trim();
-    
+
     if (!locator) {
       showErrorMessage('Locator value is empty');
       return;
     }
-    
+
     showCodeSnippetsModal(elementName, strategy, locator);
   });
-  
+
   actionButtonContainer.appendChild(testButton);
   actionButtonContainer.appendChild(saveButton);
   actionButtonContainer.appendChild(codeSnippetsButton);
@@ -836,24 +863,24 @@ function createAdBanner() {
     justify-content: space-between;
     align-items: center;
   `;
-  
+
   const sponsoredLabel = document.createElement('span');
   sponsoredLabel.textContent = 'Sponsored';
   sponsoredLabel.style.cssText = `
     color: #999;
     font-size: 10px;
   `;
-  
+
   const adLabel = document.createElement('span');
   adLabel.textContent = 'Ad';
   adLabel.style.cssText = `
     color: #999;
     font-size: 10px;
   `;
-  
+
   adBanner.appendChild(sponsoredLabel);
   adBanner.appendChild(adLabel);
-  
+
   const adContent = document.createElement('div');
   adContent.style.cssText = `
     width: 100%;
@@ -875,14 +902,14 @@ function createAdBanner() {
   adContent.addEventListener('mouseout', () => {
     adContent.style.backgroundColor = 'rgba(34, 34, 34, 0.3)';
   });
-  
+
   const adContainer = document.createElement('div');
   adContainer.style.cssText = `
     width: 100%;
   `;
   adContainer.appendChild(adBanner);
   adContainer.appendChild(adContent);
-  
+
   locatorPanel.appendChild(adContainer);
 }
 
@@ -1031,7 +1058,7 @@ async function saveLocatorsToFile(elementName, locators) {
 function showFileSaveDialog(elementName, locators) {
   // Create sanitized filename from page title
   const defaultFileName = sanitizeFileName(document.title);
-  
+
   // Create modal overlay
   const modalOverlay = document.createElement('div');
   modalOverlay.style.cssText = `
@@ -1362,7 +1389,7 @@ function showFileSaveDialog(elementName, locators) {
 
     const storageType = document.querySelector('input[name="storageType"]:checked').value;
     const format = document.querySelector('input[name="fileFormat"]:checked').value;
-    
+
     try {
       if (storageType === 'library') {
         // Save to library (localStorage)
@@ -1373,7 +1400,7 @@ function showFileSaveDialog(elementName, locators) {
         await downloadLocatorFile(fileName, format, elementName, locators);
         showMessage('Locator file downloaded successfully!', 'success');
       }
-      
+
       // Don't close the modal immediately to show the success message
       setTimeout(() => {
         document.body.removeChild(modalOverlay);
@@ -1443,7 +1470,7 @@ function showFileSaveDialog(elementName, locators) {
   function showMessage(text, type = 'info') {
     messageArea.textContent = text;
     messageArea.style.display = 'block';
-    
+
     if (type === 'error') {
       messageArea.style.backgroundColor = 'rgba(255, 130, 130, 0.6)';
     } else if (type === 'success') {
@@ -1465,9 +1492,9 @@ function saveLocatorToLibrary(fileName, elementName, locators) {
       collections: {}
     }));
   }
-  
+
   const library = JSON.parse(localStorage.getItem('element_locator_library'));
-  
+
   // Add or update collection
   if (!library.collections[fileName]) {
     library.collections[fileName] = {
@@ -1479,7 +1506,7 @@ function saveLocatorToLibrary(fileName, elementName, locators) {
   } else {
     library.collections[fileName].lastModified = new Date().toISOString();
   }
-  
+
   // Get or create page entry
   const pageUrl = window.location.href;
   if (!library.collections[fileName].pages[pageUrl]) {
@@ -1489,10 +1516,10 @@ function saveLocatorToLibrary(fileName, elementName, locators) {
       elements: {}
     };
   }
-  
+
   // Add element locators
   library.collections[fileName].pages[pageUrl].elements[elementName] = locators;
-  
+
   // Save back to localStorage
   localStorage.setItem('element_locator_library', JSON.stringify(library));
 }
@@ -1513,13 +1540,13 @@ async function downloadLocatorFile(fileName, format, elementName, locators) {
     const jsonData = {
       [window.location.href]: pageData
     };
-    
+
     const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
     downloadFileWithConfirmation(blob, `${fileName}.json`);
   } else {
     // Create CSV file
     let csvContent = 'Element Name,URL,Page Title,Timestamp,Locator Type,Locator Value\n';
-    
+
     // Add rows for each locator type
     Object.entries(locators).forEach(([type, value]) => {
       if (value) {
@@ -1531,11 +1558,11 @@ async function downloadLocatorFile(fileName, format, elementName, locators) {
           type,
           `"${value.replace(/"/g, '""')}"`
         ].join(',');
-        
+
         csvContent += row + '\n';
       }
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     downloadFileWithConfirmation(blob, `${fileName}.csv`);
   }
@@ -1786,15 +1813,15 @@ function showLibraryManager() {
         color: #aaa;
         margin-bottom: 12px;
       `;
-      
+
       const pageCount = Object.keys(collection.pages).length;
       let elementCount = 0;
       Object.values(collection.pages).forEach(page => {
         elementCount += Object.keys(page.elements).length;
       });
-      
+
       const lastModified = new Date(collection.lastModified).toLocaleString();
-      
+
       collectionDetails.textContent = `${pageCount} pages, ${elementCount} elements • Last modified: ${lastModified}`;
       collectionCard.appendChild(collectionDetails);
 
@@ -1859,27 +1886,27 @@ function showLibraryManager() {
     flex-direction: column;
     gap: 12px;
   `;
-  
+
   const exportAllTitle = document.createElement('div');
   exportAllTitle.textContent = 'Export Options';
   exportAllTitle.style.cssText = `
     font-size: 16px;
     font-weight: bold;
   `;
-  
+
   const exportDescription = document.createElement('div');
   exportDescription.textContent = 'Export collections as individual JSON files or as a single ZIP archive. Files will be saved to your browser\'s default download location.';
   exportDescription.style.cssText = `
     font-size: 13px;
     color: #ccc;
   `;
-  
+
   const exportButtons = document.createElement('div');
   exportButtons.style.cssText = `
     display: flex;
     gap: 10px;
   `;
-  
+
   // Export as ZIP button
   const exportAsZipButton = document.createElement('button');
   exportAsZipButton.textContent = 'Export as ZIP';
@@ -1915,7 +1942,7 @@ function showLibraryManager() {
   exportAsZipButton.addEventListener('click', () => {
     exportAllCollections('zip');
   });
-  
+
   // Export separate files button
   const exportSeparateButton = document.createElement('button');
   exportSeparateButton.textContent = 'Export Separate Files';
@@ -1953,14 +1980,14 @@ function showLibraryManager() {
   exportSeparateButton.addEventListener('click', () => {
     exportAllCollections('separate');
   });
-  
+
   exportButtons.appendChild(exportAsZipButton);
   exportButtons.appendChild(exportSeparateButton);
-  
+
   exportAllContainer.appendChild(exportAllTitle);
   exportAllContainer.appendChild(exportDescription);
   exportAllContainer.appendChild(exportButtons);
-  
+
   if (Object.keys(collections).length > 0) {
     modalContent.appendChild(exportAllContainer);
   }
@@ -1973,7 +2000,7 @@ function showLibraryManager() {
 function exportCollection(collection) {
   // Format data for export
   const exportData = {};
-  
+
   // Structure data by page URL
   Object.values(collection.pages).forEach(page => {
     exportData[page.url] = {
@@ -1983,7 +2010,7 @@ function exportCollection(collection) {
       elements: page.elements
     };
   });
-  
+
   // Create file blob
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
   downloadFileWithConfirmation(blob, `${collection.name}.json`);
@@ -1993,11 +2020,11 @@ function exportCollection(collection) {
 function exportAllCollections(mode = 'zip') {
   const libraryData = JSON.parse(localStorage.getItem('element_locator_library') || '{"collections":{}}');
   const collections = libraryData.collections;
-  
+
   if (Object.keys(collections).length === 0) {
     return;
   }
-  
+
   // Create a status message element to show progress
   const statusMessageContainer = document.createElement('div');
   statusMessageContainer.style.cssText = `
@@ -2014,10 +2041,10 @@ function exportAllCollections(mode = 'zip') {
     z-index: 2147483649;
     transition: opacity 0.3s ease;
   `;
-  
+
   document.body.appendChild(statusMessageContainer);
   statusMessageContainer.textContent = "Preparing collections for export...";
-  
+
   if (mode === 'zip') {
     // Check if JSZip is already loaded
     if (typeof JSZip === 'undefined') {
@@ -2037,21 +2064,21 @@ function exportAllCollections(mode = 'zip') {
     // Export as separate files
     exportCollectionsIndividually();
   }
-  
+
   // Function to create zip and download
   function createAndDownloadZip() {
     try {
       const zip = new JSZip();
       const collectionNames = Object.keys(collections);
       const totalCollections = collectionNames.length;
-      
+
       // Add each collection as a separate file in the zip
       collectionNames.forEach((collectionName, index) => {
         const collection = collections[collectionName];
-        
+
         // Format data for export
         const exportData = {};
-        
+
         // Structure data by page URL
         Object.values(collection.pages).forEach(page => {
           exportData[page.url] = {
@@ -2061,27 +2088,27 @@ function exportAllCollections(mode = 'zip') {
             elements: page.elements
           };
         });
-        
+
         // Add file to zip
         zip.file(`${collectionName}.json`, JSON.stringify(exportData, null, 2));
-        
+
         // Update status
         statusMessageContainer.textContent = `Adding collection ${index + 1} of ${totalCollections}: ${collectionName}`;
       });
-      
+
       // Generate the zip file and trigger download
       statusMessageContainer.textContent = "Generating zip file...";
-      zip.generateAsync({ type: "blob" }).then(function(content) {
+      zip.generateAsync({ type: "blob" }).then(function (content) {
         // Update status message
         statusMessageContainer.textContent = `Preparing zip file with ${totalCollections} collections`;
-        
+
         // Download the zip file with confirmation
         downloadFileWithConfirmation(content, "element_locator_collections.zip");
-        
+
         // Show success message after a brief delay
         setTimeout(() => {
           statusMessageContainer.textContent = `Exported ${totalCollections} collections as a zip file`;
-          
+
           // Remove status message after a delay
           setTimeout(() => {
             if (statusMessageContainer.parentNode) {
@@ -2101,18 +2128,18 @@ function exportAllCollections(mode = 'zip') {
       setTimeout(() => exportCollectionsIndividually(), 1500);
     }
   }
-  
+
   // Function to export collections individually
   function exportCollectionsIndividually() {
     const collectionNames = Object.keys(collections);
     const totalCollections = collectionNames.length;
     let currentIndex = 0;
-    
+
     function exportNextCollection() {
       if (currentIndex >= totalCollections) {
         // All collections exported
         statusMessageContainer.textContent = `Exported all ${totalCollections} collections successfully!`;
-        
+
         // Remove status message after a delay
         setTimeout(() => {
           if (statusMessageContainer.parentNode) {
@@ -2124,24 +2151,24 @@ function exportAllCollections(mode = 'zip') {
             }, 300);
           }
         }, 3000);
-        
+
         return;
       }
-      
+
       const collectionName = collectionNames[currentIndex];
       const collection = collections[collectionName];
-      
+
       // Update status message
       statusMessageContainer.textContent = `Exporting collection ${currentIndex + 1} of ${totalCollections}: ${collectionName}`;
-      
+
       // Export the current collection
       exportCollection(collection);
-      
+
       // Move to next collection after a small delay
       currentIndex++;
       setTimeout(exportNextCollection, 800);
     }
-    
+
     // Start the export process
     exportNextCollection();
   }
@@ -2150,7 +2177,7 @@ function exportAllCollections(mode = 'zip') {
 // Function to delete a collection
 function deleteCollection(collectionName) {
   const libraryData = JSON.parse(localStorage.getItem('element_locator_library') || '{"collections":{}}');
-  
+
   if (libraryData.collections[collectionName]) {
     delete libraryData.collections[collectionName];
     localStorage.setItem('element_locator_library', JSON.stringify(libraryData));
@@ -2238,7 +2265,7 @@ function showDownloadConfirmDialog(fileName, downloadAction) {
     align-items: center;
     gap: 10px;
   `;
-  
+
   const fileIcon = document.createElement('div');
   fileIcon.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#009688" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2246,7 +2273,7 @@ function showDownloadConfirmDialog(fileName, downloadAction) {
       <polyline points="14 2 14 8 20 8"></polyline>
     </svg>
   `;
-  
+
   const fileNameText = document.createElement('div');
   fileNameText.style.cssText = `
     flex: 1;
@@ -2255,10 +2282,10 @@ function showDownloadConfirmDialog(fileName, downloadAction) {
     white-space: nowrap;
   `;
   fileNameText.textContent = fileName;
-  
+
   fileNameInfo.appendChild(fileIcon);
   fileNameInfo.appendChild(fileNameText);
-  
+
   const downloadInfo = document.createElement('div');
   downloadInfo.style.cssText = `
     line-height: 1.5;
@@ -2367,10 +2394,10 @@ function showDownloadConfirmDialog(fileName, downloadAction) {
     if (dontShowCheckbox.checked) {
       localStorage.setItem('element_locator_skip_download_dialog', 'true');
     }
-    
+
     // Remove the modal
     document.body.removeChild(modalOverlay);
-    
+
     // Execute the download action
     downloadAction();
   });
@@ -2472,23 +2499,23 @@ document.addEventListener('keydown', (e) => {
 function sanitizeFileName(pageTitle) {
   // Remove any characters that aren't allowed in filenames
   let fileName = pageTitle.replace(/[\\/:*?"<>|]/g, '_');
-  
+
   // Replace multiple spaces with single underscore
   fileName = fileName.replace(/\s+/g, '_');
-  
+
   // Limit length to 50 characters to keep it manageable
   if (fileName.length > 50) {
     fileName = fileName.substring(0, 47) + '...';
   }
-  
+
   // Remove any leading/trailing underscores
   fileName = fileName.replace(/^_+|_+$/g, '');
-  
+
   // If filename is empty after sanitization, use a default
   if (!fileName) {
     fileName = 'page_locators';
   }
-  
+
   return fileName;
 }
 
@@ -2496,7 +2523,7 @@ function sanitizeFileName(pageTitle) {
 function generateCodeSnippets(strategy, locator, elementName) {
   // Sanitize the element name for use as a variable name
   const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
-  
+
   // Map strategy to Selenium, Cypress, and Playwright formats
   const seleniumStrategy = {
     'css': 'By.cssSelector',
@@ -2506,7 +2533,7 @@ function generateCodeSnippets(strategy, locator, elementName) {
     'partiallinktext': 'By.partialLinkText',
     'tagname': 'By.tagName'
   }[strategy] || 'By.cssSelector';
-  
+
   const cypressStrategy = {
     'css': '',
     'xpath': 'xpath ',
@@ -2515,7 +2542,7 @@ function generateCodeSnippets(strategy, locator, elementName) {
     'partiallinktext': '', // We'll handle partial link text specially
     'tagname': '' // Just the tag name for Cypress
   }[strategy] || '';
-  
+
   // Generate Selenium code (Java)
   let seleniumJava = '';
   if (strategy === 'linktext') {
@@ -2528,7 +2555,7 @@ WebElement ${safeElementName} = driver.findElement(By.partialLinkText("${locator
     seleniumJava = `// Selenium Java
 WebElement ${safeElementName} = driver.findElement(${seleniumStrategy}("${locator}"));`;
   }
-  
+
   // Generate Selenium code (Python)
   let seleniumPython = '';
   if (strategy === 'linktext') {
@@ -2547,7 +2574,7 @@ ${safeElementName} = driver.find_element(By.CSS_SELECTOR, "${locator}")`;
     seleniumPython = `# Selenium Python
 ${safeElementName} = driver.find_element(By.${strategy.toUpperCase()}, "${locator}")`;
   }
-  
+
   // Generate Cypress code
   let cypressCode = '';
   if (strategy === 'linktext') {
@@ -2569,7 +2596,7 @@ cy.xpath('${locator}')`;
     cypressCode = `// Cypress
 cy.get('${locator}')`;
   }
-  
+
   // Generate Playwright code
   let playwrightCode = '';
   if (strategy === 'css') {
@@ -2588,7 +2615,7 @@ const ${safeElementName} = await page.locator('.${locator}')`;
     playwrightCode = `// Playwright
 const ${safeElementName} = await page.locator('${locator}')`;
   }
-  
+
   return {
     selenium: {
       java: seleniumJava,
@@ -2732,21 +2759,21 @@ function showCodeSnippetsModal(elementName, strategy, locator) {
         t.style.borderBottom = 'none';
         t.classList.remove('active-tab');
       });
-      
+
       // Set active state for clicked tab
       tab.style.color = 'white';
       tab.style.borderBottom = '2px solid #009688';
       tab.classList.add('active-tab');
-      
+
       // Update content
       codeElement.textContent = framework.content;
     });
-    
+
     // Add active class to first tab
     if (index === 0) {
       tab.classList.add('active-tab');
     }
-    
+
     tabsContainer.appendChild(tab);
   });
 
@@ -2829,23 +2856,23 @@ require('cypress-xpath');</pre>
 // Function to generate Page Object Model code
 function generatePageObjectModel(collection, language = 'java') {
   const pages = collection.pages;
-  
+
   if (Object.keys(pages).length === 0) {
     return { error: 'No pages found in this collection' };
   }
-  
+
   const pageObjectModels = {};
-  
+
   // Generate code for each page in the collection
   Object.values(pages).forEach(page => {
     const pageTitle = page.title;
     const pageUrl = page.url;
     const elements = page.elements;
-    
+
     if (!pageTitle || Object.keys(elements).length === 0) {
       return; // Skip pages without titles or elements
     }
-    
+
     // Create a class name from page title
     let className = pageTitle
       .replace(/[^a-zA-Z0-9]/g, ' ')  // Replace non-alphanumeric with spaces
@@ -2853,16 +2880,16 @@ function generatePageObjectModel(collection, language = 'java') {
       .filter(word => word.length > 0)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Title case each word
       .join('');
-    
+
     className = className + 'Page'; // Add Page suffix
-    
+
     // Ensure the class name is valid
     if (!/^[a-zA-Z]/.test(className)) {
       className = 'Page' + className;
     }
-    
+
     let code;
-    
+
     // Java - Selenium WebDriver
     if (language === 'java') {
       code = generateJavaPageObject(className, pageUrl, elements);
@@ -2883,7 +2910,7 @@ function generatePageObjectModel(collection, language = 'java') {
     else if (language === 'typescript') {
       code = generateTypeScriptPageObject(className, pageUrl, elements);
     }
-    
+
     pageObjectModels[className] = {
       code,
       pageTitle,
@@ -2891,7 +2918,7 @@ function generatePageObjectModel(collection, language = 'java') {
       elementCount: Object.keys(elements).length
     };
   });
-  
+
   return pageObjectModels;
 }
 
@@ -2934,7 +2961,7 @@ public class ${className} {
     // Determine the best locator to use
     let locatorType = 'CSS';
     let locatorValue = locators.css;
-    
+
     if (!locatorValue && locators.xpath) {
       locatorType = 'XPATH';
       locatorValue = locators.xpath;
@@ -2945,26 +2972,26 @@ public class ${className} {
       locatorType = 'LINK_TEXT';
       locatorValue = locators.linkText;
     }
-    
+
     if (!locatorValue) return; // Skip if no valid locator
-    
+
     // Clean the element name to make it a valid Java method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add locator field
     code += `    private final By ${safeElementName}Locator = By.${locatorType.toLowerCase()}("${locatorValue}");\n`;
   });
-  
+
   code += '\n    // Methods to interact with elements\n';
-  
+
   // Add methods to interact with elements
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Skip if no valid locator
     if (!locators.css && !locators.xpath && !locators.className && !locators.linkText) return;
-    
+
     // Clean the element name to make it a valid Java method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add getter method
     code += `
     /**
@@ -2984,9 +3011,9 @@ public class ${className} {
 `;
 
     // Add type method for input elements
-    if (elementName.toLowerCase().includes('input') || 
-        elementName.toLowerCase().includes('field') || 
-        elementName.toLowerCase().includes('text')) {
+    if (elementName.toLowerCase().includes('input') ||
+      elementName.toLowerCase().includes('field') ||
+      elementName.toLowerCase().includes('text')) {
       code += `
     /**
      * Type text into the ${elementName} element
@@ -3000,10 +3027,10 @@ public class ${className} {
 `;
     }
   });
-  
+
   // Close the class
   code += '}\n';
-  
+
   return code;
 }
 
@@ -3039,7 +3066,7 @@ class ${className}:
     // Determine the best locator to use
     let locatorType = 'CSS_SELECTOR';
     let locatorValue = locators.css;
-    
+
     if (!locatorValue && locators.xpath) {
       locatorType = 'XPATH';
       locatorValue = locators.xpath;
@@ -3050,26 +3077,26 @@ class ${className}:
       locatorType = 'LINK_TEXT';
       locatorValue = locators.linkText;
     }
-    
+
     if (!locatorValue) return; // Skip if no valid locator
-    
+
     // Clean the element name to make it a valid Python method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add locator field
     code += `    ${safeElementName}_locator = (By.${locatorType}, "${locatorValue}")\n`;
   });
-  
+
   code += '\n    # Methods to interact with elements\n';
-  
+
   // Add methods to interact with elements
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Skip if no valid locator
     if (!locators.css && !locators.xpath && !locators.className && !locators.linkText) return;
-    
+
     // Clean the element name to make it a valid Python method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add getter method
     code += `
     def get_${safeElementName}(self):
@@ -3087,9 +3114,9 @@ class ${className}:
 `;
 
     // Add type method for input elements
-    if (elementName.toLowerCase().includes('input') || 
-        elementName.toLowerCase().includes('field') || 
-        elementName.toLowerCase().includes('text')) {
+    if (elementName.toLowerCase().includes('input') ||
+      elementName.toLowerCase().includes('field') ||
+      elementName.toLowerCase().includes('text')) {
       code += `
     def type_${safeElementName}(self, text):
         """
@@ -3102,7 +3129,7 @@ class ${className}:
 `;
     }
   });
-  
+
   return code;
 }
 
@@ -3127,7 +3154,7 @@ class ${className} {
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Determine the best locator to use
     let locatorValue;
-    
+
     if (locators.css) {
       locatorValue = locators.css;
     } else if (locators.xpath) {
@@ -3139,14 +3166,14 @@ class ${className} {
     } else {
       return; // Skip if no valid locator
     }
-    
+
     // Clean the element name to make it a valid JS property name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add locator field
     code += `    this.${safeElementName} = page.locator('${locatorValue}');\n`;
   });
-  
+
   code += `  }
   
   /**
@@ -3158,15 +3185,15 @@ class ${className} {
   
   // Methods to interact with elements
 `;
-  
+
   // Add methods to interact with elements
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Skip if no valid locator
     if (!locators.css && !locators.xpath && !locators.className && !locators.linkText) return;
-    
+
     // Clean the element name to make it a valid JS method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add methods
     code += `
   /**
@@ -3178,9 +3205,9 @@ class ${className} {
 `;
 
     // Add type method for input elements
-    if (elementName.toLowerCase().includes('input') || 
-        elementName.toLowerCase().includes('field') || 
-        elementName.toLowerCase().includes('text')) {
+    if (elementName.toLowerCase().includes('input') ||
+      elementName.toLowerCase().includes('field') ||
+      elementName.toLowerCase().includes('text')) {
       code += `
   /**
    * Type text into the ${elementName} element
@@ -3191,7 +3218,7 @@ class ${className} {
   }
 `;
     }
-    
+
     // Add isVisible method
     code += `
   /**
@@ -3203,10 +3230,10 @@ class ${className} {
   }
 `;
   });
-  
+
   // Close the class
   code += '}\n\nmodule.exports = { ' + className + ' };\n';
-  
+
   return code;
 }
 
@@ -3224,7 +3251,7 @@ class ${className} {
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Determine the best locator to use
     let locatorValue;
-    
+
     if (locators.css) {
       locatorValue = locators.css;
     } else if (locators.xpath) {
@@ -3236,10 +3263,10 @@ class ${className} {
     } else {
       return; // Skip if no valid locator
     }
-    
+
     // Clean the element name to make it a valid JS property name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add selector field
     if (locators.xpath) {
       code += `  ${safeElementName} = (options = {}) => cy.xpath('${locatorValue}', options)\n`;
@@ -3247,7 +3274,7 @@ class ${className} {
       code += `  ${safeElementName} = (options = {}) => cy.get('${locatorValue}', options)\n`;
     }
   });
-  
+
   code += `
   /**
    * Visit the page
@@ -3259,15 +3286,15 @@ class ${className} {
   
   // Methods to interact with elements
 `;
-  
+
   // Add methods to interact with elements
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Skip if no valid locator
     if (!locators.css && !locators.xpath && !locators.className && !locators.linkText) return;
-    
+
     // Clean the element name to make it a valid JS method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add click method
     code += `
   /**
@@ -3281,9 +3308,9 @@ class ${className} {
 `;
 
     // Add type method for input elements
-    if (elementName.toLowerCase().includes('input') || 
-        elementName.toLowerCase().includes('field') || 
-        elementName.toLowerCase().includes('text')) {
+    if (elementName.toLowerCase().includes('input') ||
+      elementName.toLowerCase().includes('field') ||
+      elementName.toLowerCase().includes('text')) {
       code += `
   /**
    * Type text into the ${elementName} element
@@ -3296,7 +3323,7 @@ class ${className} {
   }
 `;
     }
-    
+
     // Add should be visible method
     code += `
   /**
@@ -3309,10 +3336,10 @@ class ${className} {
   }
 `;
   });
-  
+
   // Close the class
   code += '}\n\nexport default ' + className + ';\n';
-  
+
   return code;
 }
 
@@ -3335,7 +3362,7 @@ export class ${className} {
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Determine the best locator to use
     let locatorValue;
-    
+
     if (locators.css) {
       locatorValue = locators.css;
     } else if (locators.xpath) {
@@ -3347,14 +3374,14 @@ export class ${className} {
     } else {
       return; // Skip if no valid locator
     }
-    
+
     // Clean the element name to make it a valid TS property name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add locator field
     code += `  readonly ${safeElementName}: Locator;\n`;
   });
-  
+
   code += `
   constructor(page: Page) {
     this.page = page;
@@ -3367,7 +3394,7 @@ export class ${className} {
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Determine the best locator to use
     let locatorValue;
-    
+
     if (locators.css) {
       locatorValue = locators.css;
     } else if (locators.xpath) {
@@ -3379,14 +3406,14 @@ export class ${className} {
     } else {
       return; // Skip if no valid locator
     }
-    
+
     // Clean the element name to make it a valid TS property name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Initialize locator in constructor
     code += `    this.${safeElementName} = page.locator('${locatorValue}');\n`;
   });
-  
+
   code += `  }
   
   /**
@@ -3398,15 +3425,15 @@ export class ${className} {
   
   // Methods to interact with elements
 `;
-  
+
   // Add methods to interact with elements
   Object.entries(elements).forEach(([elementName, locators]) => {
     // Skip if no valid locator
     if (!locators.css && !locators.xpath && !locators.className && !locators.linkText) return;
-    
+
     // Clean the element name to make it a valid TS method name
     const safeElementName = elementName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    
+
     // Add methods
     code += `
   /**
@@ -3418,9 +3445,9 @@ export class ${className} {
 `;
 
     // Add type method for input elements
-    if (elementName.toLowerCase().includes('input') || 
-        elementName.toLowerCase().includes('field') || 
-        elementName.toLowerCase().includes('text')) {
+    if (elementName.toLowerCase().includes('input') ||
+      elementName.toLowerCase().includes('field') ||
+      elementName.toLowerCase().includes('text')) {
       code += `
   /**
    * Type text into the ${elementName} element
@@ -3431,7 +3458,7 @@ export class ${className} {
   }
 `;
     }
-    
+
     // Add isVisible method
     code += `
   /**
@@ -3442,12 +3469,12 @@ export class ${className} {
   }
 `;
   });
-  
+
   // Close the class
   code += '}\n';
-  
+
   return code;
-} 
+}
 
 // Function to show Page Object Model modal
 function showPageObjectModelModal(collection) {
@@ -3571,37 +3598,37 @@ function showPageObjectModelModal(collection) {
       font-size: 14px;
       transition: background-color 0.2s ease;
     `;
-    
+
     langButton.addEventListener('mouseover', () => {
       if (!langButton.classList.contains('selected')) {
         langButton.style.backgroundColor = lang.selected ? 'rgba(0, 150, 136, 0.9)' : 'rgba(26, 26, 26, 0.8)';
       }
     });
-    
+
     langButton.addEventListener('mouseout', () => {
       if (!langButton.classList.contains('selected')) {
         langButton.style.backgroundColor = lang.selected ? 'rgba(0, 150, 136, 0.7)' : 'rgba(26, 26, 26, 0.6)';
       }
     });
-    
+
     langButton.addEventListener('click', () => {
       // Update button styles
       languageSelector.querySelectorAll('button').forEach(btn => {
         btn.style.backgroundColor = 'rgba(26, 26, 26, 0.6)';
         btn.classList.remove('selected');
       });
-      
+
       langButton.style.backgroundColor = 'rgba(0, 150, 136, 0.7)';
       langButton.classList.add('selected');
-      
+
       // Generate code for the selected language
       updateGeneratedCode(lang.id);
     });
-    
+
     if (lang.selected) {
       langButton.classList.add('selected');
     }
-    
+
     languageSelector.appendChild(langButton);
   });
 
@@ -3638,22 +3665,22 @@ function showPageObjectModelModal(collection) {
     if (!generatedModels[language]) {
       generatedModels[language] = generatePageObjectModel(collection, language);
     }
-    
+
     // Clear existing page tabs and create new ones
     pageSelector.innerHTML = '';
-    
+
     const models = generatedModels[language];
     const pageNames = Object.keys(models);
-    
+
     if (pageNames.length === 0) {
       codeElement.textContent = 'No valid pages found with elements in this collection.';
       return;
     }
-    
+
     // Create tab for each page
     pageNames.forEach((pageName, index) => {
       const pageModel = models[pageName];
-      
+
       const pageTab = document.createElement('div');
       pageTab.textContent = pageName;
       pageTab.dataset.page = pageName;
@@ -3667,55 +3694,55 @@ function showPageObjectModelModal(collection) {
         white-space: nowrap;
         transition: all 0.2s ease;
       `;
-      
+
       pageTab.addEventListener('mouseover', () => {
         if (pageTab.dataset.page !== currentPage) {
           pageTab.style.backgroundColor = 'rgba(26, 26, 26, 0.6)';
         }
       });
-      
+
       pageTab.addEventListener('mouseout', () => {
         if (pageTab.dataset.page !== currentPage) {
           pageTab.style.backgroundColor = 'rgba(26, 26, 26, 0.4)';
         }
       });
-      
+
       pageTab.addEventListener('click', () => {
         // Update active tab
         pageSelector.querySelectorAll('div').forEach(tab => {
           tab.style.backgroundColor = 'rgba(26, 26, 26, 0.4)';
           tab.style.color = '#ccc';
         });
-        
+
         pageTab.style.backgroundColor = 'rgba(26, 26, 26, 0.8)';
         pageTab.style.color = 'white';
-        
+
         // Update currentPage
         currentPage = pageName;
-        
+
         // Update code
         codeElement.textContent = pageModel.code;
-        
+
         // Update page info
         pageInfoText.innerHTML = `<strong>${pageName}</strong> - ${pageModel.elementCount} elements`;
         if (pageModel.pageUrl) {
           pageInfoText.innerHTML += `<br>URL: <span style="color: #999;">${pageModel.pageUrl}</span>`;
         }
       });
-      
+
       pageSelector.appendChild(pageTab);
-      
+
       // Set first page as current
       if (index === 0) {
         currentPage = pageName;
       }
     });
-    
+
     // Set initial content to first page
     if (pageNames.length > 0) {
       const firstPage = pageNames[0];
       codeElement.textContent = models[firstPage].code;
-      
+
       // Update page info
       pageInfoText.innerHTML = `<strong>${firstPage}</strong> - ${models[firstPage].elementCount} elements`;
       if (models[firstPage].pageUrl) {
@@ -3761,9 +3788,9 @@ function showPageObjectModelModal(collection) {
     // Get currently selected language
     const selectedLanguage = languageSelector.querySelector('.selected').dataset.language;
     const models = generatedModels[selectedLanguage];
-    
+
     if (!models) return;
-    
+
     // Combine all page objects into one string
     let allCode = '';
     Object.values(models).forEach(model => {
@@ -3771,7 +3798,7 @@ function showPageObjectModelModal(collection) {
         allCode += model.code + '\n\n';
       }
     });
-    
+
     // Copy to clipboard
     navigator.clipboard.writeText(allCode).then(() => {
       const originalText = copyAllButton.textContent;

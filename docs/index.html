@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Sense - Documentation & Tutorials</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #34d399;
+            --accent-color: #06b6d4;
+            --accent-light: #22d3ee;
+            --dark-bg: #111827;
+            --card-bg: rgba(17, 24, 39, 0.8);
+            --card-hover: rgba(31, 41, 55, 0.9);
+            --text-color: rgba(255, 255, 255, 0.95);
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --text-dimmed: rgba(255, 255, 255, 0.5);
+            --code-bg: rgba(0, 0, 0, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --hover-color: rgba(16, 185, 129, 0.1);
+            --warning-color: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--dark-bg);
+            background-image: 
+                linear-gradient(to bottom right, rgba(16, 185, 129, 0.05), transparent 70%),
+                linear-gradient(to top right, rgba(6, 182, 212, 0.05), transparent 70%),
+                radial-gradient(circle at 80% 10%, rgba(16, 185, 129, 0.1) 0%, transparent 35%);
+            min-height: 100vh;
+            letter-spacing: 0.01em;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(to right, rgba(17, 24, 39, 0.95), rgba(31, 41, 55, 0.95));
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                var(--primary-color) 35%, 
+                var(--accent-color) 65%, 
+                transparent 100%);
+            opacity: 0.8;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 
+                0 8px 30px rgba(0, 0, 0, 0.2),
+                0 0 15px rgba(16, 185, 129, 0.2);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                rgba(16, 185, 129, 0.1),
+                transparent
+            );
+            transform: rotate(45deg);
+            animation: shine 4s infinite ease-in-out;
+        }
+
+        .logo i {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.3));
+        }
+
+        @keyframes shine {
+            0% {
+                transform: rotate(45deg) translateY(-100%);
+            }
+            50% {
+                transform: rotate(45deg) translateY(100%);
+            }
+            100% {
+                transform: rotate(45deg) translateY(100%);
+            }
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        .header-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            max-width: 650px;
+            line-height: 1.6;
+        }
+
+        .version-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: linear-gradient(to right, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--primary-light);
+            margin-left: 1rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.1);
+        }
+
+        nav {
+            background: rgba(17, 24, 39, 0.95);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        nav a {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        nav a:hover {
+            color: var(--primary-light);
+            background: var(--hover-color);
+            transform: translateY(-2px);
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        nav a:hover::after {
+            width: 60%;
+        }
+
+        section {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            margin-bottom: 2.5rem;
+            border-radius: 24px;
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.3), transparent);
+        }
+
+        section:hover {
+            transform: translateY(-3px);
+            background: var(--card-hover);
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(16, 185, 129, 0.1);
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--primary-light);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+            border-bottom: 2px solid rgba(16, 185, 129, 0.15);
+            padding-bottom: 0.75rem;
+            margin-top: 2.5rem;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h3 {
+            font-size: 1.6rem;
+            margin-top: 2rem;
+            color: var(--accent-light);
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+            color: var(--text-color);
+            font-size: 1.05rem;
+        }
+
+        code {
+            background-color: var(--code-bg);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            color: var(--accent-light);
+            font-size: 0.95rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2.5rem;
+            margin: 2.5rem 0;
+        }
+
+        .feature-card {
+            background: rgba(17, 24, 39, 0.6);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.15),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .feature-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 i {
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(31, 41, 55, 0.8);
+            box-shadow: 
+                0 15px 35px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(16, 185, 129, 0.2);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .tutorial-step {
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 0 16px 16px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .note {
+            background: rgba(16, 185, 129, 0.05);
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            border-radius: 0 16px 16px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .warning {
+            background: rgba(245, 158, 11, 0.05);
+            border-left: 4px solid var(--warning-color);
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            border-radius: 0 16px 16px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 1.5rem 0;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        th, td {
+            padding: 1.2rem;
+            background: rgba(17, 24, 39, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            background: rgba(16, 185, 129, 0.1);
+            font-weight: 600;
+            text-align: left;
+            color: var(--primary-light);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        td:first-child, th:first-child {
+            padding-left: 1.8rem;
+        }
+
+        ul, ol {
+            margin-left: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        li {
+            margin-bottom: 0.8rem;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(17, 24, 39, 0.4);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, var(--primary-color), var(--accent-color));
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            nav ul {
+                flex-direction: column;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            section {
+                padding: 1.8rem;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+
+            h2 {
+                font-size: 1.8rem;
+            }
+
+            h3 {
+                font-size: 1.4rem;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .logo-container {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .header-subtitle {
+                max-width: 100%;
+            }
+        }
+
+        /* Smooth scroll behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Add subtle animations */
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0);
+            }
+        }
+
+        section {
+            animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Add styling for screenshots */
+        .screenshot-container {
+            margin: 2rem 0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 
+                0 15px 30px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(16, 185, 129, 0.1);
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .screenshot-container:hover {
+            transform: translateY(-5px);
+        }
+
+        .screenshot {
+            width: 100%;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .screenshot-placeholder {
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(6, 182, 212, 0.05));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .screenshot-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            opacity: 0.5;
+        }
+
+        .screenshot-caption {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem 1.5rem;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo-container">
+                <div class="logo">
+                    <i class="fas fa-crosshairs"></i>
+                </div>
+                <div class="header-content">
+                    <h1>Select Sense<span class="version-badge">v1.0</span></h1>
+                    <p class="header-subtitle">Your intelligent companion for web element identification and test automation. Streamline your testing workflow with precise locators and instant code generation.</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#getting-started">Getting Started</a></li>
+                <li><a href="#tutorials">Tutorials</a></li>
+                <li><a href="#xpath-guide">XPath Guide</a></li>
+                <li><a href="#css-guide">CSS Selector Guide</a></li>
+                <li><a href="#testing-locators">Testing Locators</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section id="overview">
+            <h2>Overview</h2>
+            <p>Select Sense is a powerful Chrome extension designed to streamline web element identification and test automation. Whether you're a seasoned automation engineer or just getting started with web testing, our tool provides everything you need to efficiently locate elements and generate test code.</p>
+            
+            <div class="note">
+                <strong>Key Benefits:</strong>
+                <ul>
+                    <li>Instantly generate accurate locators for any web element</li>
+                    <li>Create Page Object Models with a single click</li>
+                    <li>Test locators in real-time</li>
+                    <li>Save and manage your locators</li>
+                    <li>Generate code snippets in multiple languages</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2>Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3><i class="fas fa-bullseye"></i>Smart Element Selection</h3>
+                    <p>Click on any element to instantly generate optimal locators using multiple strategies.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fas fa-sitemap"></i>Multiple Locator Strategies</h3>
+                    <p>Get CSS, XPath, ID, name, class, and link text locators automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fas fa-vial"></i>Real-time Testing</h3>
+                    <p>Test your locators instantly with visual feedback.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fas fa-code"></i>Code Generation</h3>
+                    <p>Generate code snippets in Java, Python, JavaScript, and more.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fas fa-puzzle-piece"></i>Page Objects</h3>
+                    <p>Create complete Page Object Models for your test automation framework.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fas fa-database"></i>Library Management</h3>
+                    <p>Save and organize your locators for future use.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="getting-started">
+            <h2>Getting Started</h2>
+            
+            <div class="tutorial-step">
+                <h3>1. Installation</h3>
+                <p>Install the Select Sense extension from the Chrome Web Store.</p>
+            </div>
+            
+            <div class="tutorial-step">
+                <h3>2. Activation</h3>
+                <p>Click the extension icon in your browser to activate it on any webpage.</p>
+            </div>
+            
+            <div class="tutorial-step">
+                <h3>3. Element Selection</h3>
+                <p>Click on any element on the page to generate locators.</p>
+            </div>
+            
+            <div class="tutorial-step">
+                <h3>4. Using the Panel</h3>
+                <p>Use the locator panel to view, test, and save your locators.</p>
+            </div>
+        </section>
+
+        <section id="tutorials">
+            <h2>How to Use Each Feature</h2>
+            
+            <h3>Element Selection</h3>
+            <p>To select an element:</p>
+            <ol>
+                <li>Activate the extension</li>
+                <li>Move your mouse over the desired element</li>
+                <li>Click to generate locators</li>
+            </ol>
+
+            <h3>Testing Locators</h3>
+            <p>To test a locator:</p>
+            <ol>
+                <li>Select a locator strategy (CSS, XPath, etc.)</li>
+                <li>Click the "Test" button</li>
+                <li>The element will be highlighted if found</li>
+            </ol>
+
+            <h3>Saving Locators</h3>
+            <p>To save locators:</p>
+            <ol>
+                <li>Click the "Save" button</li>
+                <li>Choose between Library or File download</li>
+                <li>Enter a name for your locator</li>
+                <li>Select the format (JSON/CSV)</li>
+            </ol>
+
+            <h3>Generating Code</h3>
+            <p>To generate code snippets:</p>
+            <ol>
+                <li>Click the "Code Snippets" button</li>
+                <li>Select your preferred programming language</li>
+                <li>Copy the generated code</li>
+            </ol>
+
+            <h3>Creating Page Objects</h3>
+            <p>To generate a Page Object Model:</p>
+            <ol>
+                <li>Save multiple elements to a collection</li>
+                <li>Click the Page Object icon</li>
+                <li>Select your framework and language</li>
+                <li>Customize the class name and settings</li>
+            </ol>
+        </section>
+
+        <section id="xpath-guide">
+            <h2>XPath Tutorial</h2>
+            
+            <h3>Basic XPath Syntax</h3>
+            <table>
+                <tr>
+                    <th>Syntax</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+                <tr>
+                    <td>//tagname</td>
+                    <td>Find any element with the tag</td>
+                    <td><code>//button</code></td>
+                </tr>
+                <tr>
+                    <td>[@attribute='value']</td>
+                    <td>Find by attribute</td>
+                    <td><code>//input[@type='submit']</code></td>
+                </tr>
+                <tr>
+                    <td>[text()='text']</td>
+                    <td>Find by exact text</td>
+                    <td><code>//button[text()='Submit']</code></td>
+                </tr>
+                <tr>
+                    <td>[contains()]</td>
+                    <td>Find by partial match</td>
+                    <td><code>//div[contains(@class, 'menu')]</code></td>
+                </tr>
+            </table>
+
+            <h3>Creating Custom XPath</h3>
+            <div class="tutorial-step">
+                <h4>1. Start with the Element Type</h4>
+                <pre><code>//button</code></pre>
+            </div>
+            <div class="tutorial-step">
+                <h4>2. Add Attributes</h4>
+                <pre><code>//button[@class='submit-btn'][@type='submit']</code></pre>
+            </div>
+            <div class="tutorial-step">
+                <h4>3. Use Contains for Dynamic Values</h4>
+                <pre><code>//button[contains(@class, 'btn')][contains(text(), 'Submit')]</code></pre>
+            </div>
+            
+            <div class="note">
+                <strong>Tip:</strong> Use the extension's Test feature to verify your XPath works correctly.
+            </div>
+        </section>
+
+        <section id="css-guide">
+            <h2>CSS Selector Tutorial</h2>
+            
+            <h3>Basic CSS Selector Syntax</h3>
+            <table>
+                <tr>
+                    <th>Syntax</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+                <tr>
+                    <td>#id</td>
+                    <td>Select by ID</td>
+                    <td><code>#submit-button</code></td>
+                </tr>
+                <tr>
+                    <td>.class</td>
+                    <td>Select by class</td>
+                    <td><code>.btn-primary</code></td>
+                </tr>
+                <tr>
+                    <td>[attribute=value]</td>
+                    <td>Select by attribute</td>
+                    <td><code>[type="submit"]</code></td>
+                </tr>
+                <tr>
+                    <td>parent > child</td>
+                    <td>Direct child</td>
+                    <td><code>.form > button</code></td>
+                </tr>
+            </table>
+
+            <h3>Creating Custom CSS Selectors</h3>
+            <div class="tutorial-step">
+                <h4>1. Start with Element Type or Class</h4>
+                <pre><code>button.submit-btn</code></pre>
+            </div>
+            <div class="tutorial-step">
+                <h4>2. Add Attributes</h4>
+                <pre><code>button.submit-btn[type="submit"]</code></pre>
+            </div>
+            <div class="tutorial-step">
+                <h4>3. Use Parent-Child Relationships</h4>
+                <pre><code>.form-container > .input-group > button.submit-btn</code></pre>
+            </div>
+            
+            <div class="note">
+                <strong>Tip:</strong> CSS selectors are often more readable than XPath and should be your first choice when possible.
+            </div>
+        </section>
+
+        <section id="testing-locators">
+            <h2>Testing Your Locators</h2>
+            
+            <h3>Using the Test Feature</h3>
+            <div class="tutorial-step">
+                <h4>1. Enter Your Locator</h4>
+                <p>Type or paste your custom locator in the appropriate field (CSS or XPath).</p>
+            </div>
+            <div class="tutorial-step">
+                <h4>2. Select Strategy</h4>
+                <p>Choose the correct strategy (CSS, XPath, etc.) for your locator.</p>
+            </div>
+            <div class="tutorial-step">
+                <h4>3. Click Test</h4>
+                <p>The extension will highlight the matching element if found.</p>
+            </div>
+
+            <div class="warning">
+                <strong>Common Issues:</strong>
+                <ul>
+                    <li>Check for typos in your selector</li>
+                    <li>Verify quotes are properly matched</li>
+                    <li>Ensure elements aren't in iframes</li>
+                    <li>Check if elements are dynamically loaded</li>
+                </ul>
+            </div>
+
+            <h3>Best Practices</h3>
+            <ul>
+                <li>Start with simple selectors and add specificity as needed</li>
+                <li>Use meaningful IDs and classes when available</li>
+                <li>Test locators across different states of the application</li>
+                <li>Consider dynamic content and page changes</li>
+                <li>Save working locators to the library for future use</li>
+            </ul>
+        </section>
+    </div>
+</body>
+</html> 
