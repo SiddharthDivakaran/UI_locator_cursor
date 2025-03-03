@@ -505,7 +505,7 @@ function showLocatorPanel(locators) {
     showHelpDocumentation();
   });
   function showHelpDocumentation() {
-    const docUrl = 'https://google.com';
+    const docUrl = 'https://select-sense.netlify.app/';
     window.open(docUrl, '_blank');
   }
   
